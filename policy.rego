@@ -1,4 +1,4 @@
-package httpapi.authz
+package policy
 
 # bob is alice's manager, and betty is charlie's.
 subordinates := {"alice": [], "charlie": [], "bob": ["alice"], "betty": ["charlie"]}
