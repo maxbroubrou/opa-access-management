@@ -1,9 +1,20 @@
-package policy
+package httpapi.authz
 
-# // setting default value to false
-default allow = false
+# bob is alice's manager, and betty is charlie's.
+subordinates := {"alice": [], "charlie": [], "bob": ["alice"], "betty": ["charlie"]}
 
-allow = true {
-	role = input.subject.roles[_] # // each role
-	role == "admin" # // allow = true if role matches "admin"
+default allow := false
+
+# Allow users to get their own salaries.
+allow {
+    input.method == "GET"
+    input.path == ["finance", "salary", input.user]
+}
+
+# Allow managers to get their subordinates' salaries.
+allow {
+    some username
+    input.method == "GET"
+    input.path = ["finance", "salary", username]
+    subordinates[input.user][_] == username
 }
