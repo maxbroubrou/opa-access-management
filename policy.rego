@@ -1,38 +1,51 @@
 package policy
 
-default allow = false
+import future.keywords.in
 
-import data.role_permissions
-import data.users
+import data.Permissions
+import data.Resources
+import data.UsersTeams
 
-# Allow admins to do anything
-allow {
-	some j
-	users[j].token == input.token
-	users[j].role == role_permissions[_].role
-	users[j].role == "admin"
+default allow := false
+
+resource_id := id {
+	Resources[i].name == input.resource
+	id := Resources[i].id
 }
 
-# Allow authorised roles to do method on resources
+resourceTypeId := typeId {
+	Resources[i].name == input.resource
+	typeId := Resources[i].ResourceTypeId
+}
+
+resource_index[id] := attributes {
+	some resource in Resources
+	id := resource.id
+	attributes := object.remove(resource, {"id"})
+}
+
+team_index[id] := attributes {
+	some team in data.Teams
+	id := team.id
+	attributes := {} # might not be empty in future?
+}
+
+all_ids := {id | team_index[id]} | {id | resource_index[id]}
+
+resource_graph[source] := destinations {
+	some source, attributes in object.union(team_index, resource_index)
+	destinations := [object.get(attributes, "ownerId", null)]
+}
+
+team_owners[team] {
+	some team in graph.reachable(resource_graph, {resource_id})
+	team_index[team]
+}
+
 allow {
-	some i
-
-	#		DEBUG
-	# 	    print(contains(role_permissions[1].method,"w")) #false
-	# 		print(contains(role_permissions[1].method,"delete")) #true
-	#     	print(type_name(role_permissions[1].method)) #string
-	#     	print(split(replace(replace(substring(role_permissions[1].method, 1, count(role_permissions[1].method)-2),`"`,""), " ", ""),",")) # ["create", "edit", "delete"]
-
-	# check resource
-	role_permissions[i].resource == input.resource
-
-	# check user role
-	some j
-	users[j].token == input.token
-	users[j].role == role_permissions[i].role
-
-	# check method
-	method_list := split(replace(replace(substring(role_permissions[i].method, 1, count(role_permissions[i].method) - 2), `"`, ""), " ", ""), ",") #converts role_permissions[i].action from string to list
-	some k
-	method_list[k] == input.method
+	UsersTeams[i].UserId == input.userId
+	some val in team_owners
+	UsersTeams[i].TeamId == val
+	UsersTeams[i].RoleId == Permissions[j].RoleId
+	Permissions[j].ResourceTypeId == resourceTypeId
 }
