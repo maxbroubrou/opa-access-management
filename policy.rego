@@ -1,6 +1,5 @@
 package policy
-​
-import data.Permissions
+​import data.Permissions
 import data.Resources
 import data.UsersTeams
 import future.keywords.in
@@ -49,7 +48,7 @@ team_owners[team] {
 allow {
 	# GET or POST /resources
 	input.method in ["GET", "POST"]
-    count(resource_details) == 1
+	count(resource_details) == 1
     
 	sub == UsersTeams[i].UserId
 	UsersTeams[i].RoleId == Permissions[j].RoleId
@@ -60,7 +59,7 @@ allow {
 allow {
 	# GET or PUT or DELETE /resources/:id
 	input.method in ["GET", "PUT", "DELETE"]
-    count(resource_details) == 2
+	count(resource_details) == 2
 ​
 	# check that userId exists in a team
 	sub == UsersTeams[i].UserId
