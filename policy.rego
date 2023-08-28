@@ -1,7 +1,7 @@
 package policy
 
 import data.Resources
-​import data.Permissions
+import data.Permissions
 import data.UsersTeams
 import future.keywords.in
 ​
