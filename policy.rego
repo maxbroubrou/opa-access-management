@@ -1,21 +1,27 @@
 package policy
 
 import future.keywords.in
-
 import data.Permissions
 import data.Resources
 import data.UsersTeams
 
 default allow := false
 
-resource_id := id {
-	Resources[i].name == input.resource
-	id := Resources[i].id
+sub := payload.sub {
+	v := input.token
+	startswith(v, "Bearer ")
+	t := substring(v, count("Bearer "), -1)
+    [_, payload, _] := io.jwt.decode(t)
 }
 
-resourceTypeId := typeId {
-	Resources[i].name == input.resource
-	typeId := Resources[i].ResourceTypeId
+resource_details := resource_details {
+	t := substring(input.resource, 1, -1)
+	resource_details := split(t, "/")
+}
+
+resourceTypeName := typeName {
+	Resources[i].id == resource_details[1]
+	typeName := Resources[i].ResourceTypeName
 }
 
 resource_index[id] := attributes {
@@ -27,10 +33,8 @@ resource_index[id] := attributes {
 team_index[id] := attributes {
 	some team in data.Teams
 	id := team.id
-	attributes := {} # might not be empty in future?
+	attributes := {}
 }
-
-all_ids := {id | team_index[id]} | {id | resource_index[id]}
 
 resource_graph[source] := destinations {
 	some source, attributes in object.union(team_index, resource_index)
@@ -38,14 +42,36 @@ resource_graph[source] := destinations {
 }
 
 team_owners[team] {
-	some team in graph.reachable(resource_graph, {resource_id})
+	some team in graph.reachable(resource_graph, {resource_details[1]})
 	team_index[team]
 }
 
 allow {
-	UsersTeams[i].UserId == input.userId
-	some val in team_owners
+	input.method == "POST"
+    sub == UsersTeams[i].UserId
+    UsersTeams[i].RoleId == Permissions[j].RoleId
+    Permissions[j].ResourceTypeName == resource_details[0]
+    Permissions[j].action == input.method
+}
+
+allow {
+	input.method in ["GET", "PUT", "DELETE"]
+    
+    # check that userId exists in a team
+    sub == UsersTeams[i].UserId 
+    
+    # check that the role of this user has permissions on the resourceType he asks
+    UsersTeams[i].RoleId == Permissions[j].RoleId 
+    Permissions[j].ResourceTypeName == resource_details[0]
+    
+    # check that the role of this user has permissions to do the action he wants to do
+    Permissions[j].action == input.method 
+    
+    # check that the specific resource id belongs to the user team
+    some val in team_owners
 	UsersTeams[i].TeamId == val
-	UsersTeams[i].RoleId == Permissions[j].RoleId
-	Permissions[j].ResourceTypeId == resourceTypeId
+    
+    # check that the specific resource asked has well the resourceType indicated in the URL
+    Resources[k].id == resource_details[1]
+    Resources[k].ResourceTypeName == resource_details[0]
 }
